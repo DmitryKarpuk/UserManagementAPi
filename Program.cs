@@ -11,6 +11,8 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
+// Error handling Middleware
+app.UseMiddleware<ErrorHandlingMiddleware>();
 // Logging Middleware
 app.UseMiddleware<LoggingMiddleware>();
 
@@ -102,5 +104,42 @@ public class LoggingMiddleware
         await _next.Invoke(context);
         int statusCode = context.Response.StatusCode;
         _logger.LogInformation($"HTTP request {method} {path}, response status: {statusCode}");
+    }
+}
+
+public class ErrorHandlingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<ErrorHandlingMiddleware> _logger;
+
+    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
+        {
+            await _next(context);
+        }
+        catch (Exception ex)
+        {
+            // log details
+            _logger.LogError(ex, "Unhandled exception.");
+            await HandleExceptionAsync(context, ex);
+        }
+    }
+
+    private static Task HandleExceptionAsync(HttpContext context, Exception ex)
+    {
+        context.Response.ContentType = "application/json";
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+        // json message
+        var jsonMessage = new { error = "Internal server error."};
+
+        return context.Response.WriteAsJsonAsync(jsonMessage);
     }
 }
