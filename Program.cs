@@ -11,6 +11,9 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
+// Logging Middleware
+app.UseMiddleware<LoggingMiddleware>();
+
 var users = new ConcurrentDictionary<int, User>();
 users.TryAdd(1, new User() {Name = "Oleg", Age = 18});
 users.TryAdd(2, new User(){ Name = "Andrij", Age = 20});
@@ -78,5 +81,26 @@ public static class UserValidator
         if (user.Name.Length < 2) return "User name must be at least 2 characters.";
         if (user.Age < 0 || user.Age >= 120) return "User age must be between 0 and 120";
         return null;
+    }
+}
+
+public class LoggingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<LoggingMiddleware> _logger;
+
+    public LoggingMiddleware(RequestDelegate next, ILogger<LoggingMiddleware> logger)
+    {
+        _logger = logger;
+        _next = next;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        string path = context.Request.Path;
+        string method = context.Request.Method;
+        await _next.Invoke(context);
+        int statusCode = context.Response.StatusCode;
+        _logger.LogInformation($"HTTP request {method} {path}, response status: {statusCode}");
     }
 }
