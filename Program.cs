@@ -1,10 +1,13 @@
 using System.Collections.Concurrent;
+using UserManagementAPI;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+//Add token validator service
+builder.Services.AddSingleton<ITokenValidator, SimpleTokenValidator>();
 var app = builder.Build();
 
 // Swagger UI
@@ -15,6 +18,8 @@ app.UseSwaggerUI();
 app.UseMiddleware<ErrorHandlingMiddleware>();
 // Logging Middleware
 app.UseMiddleware<LoggingMiddleware>();
+// Token validation middleware
+app.UseMiddleware<TokenValidationMiddleware>();
 
 var users = new ConcurrentDictionary<int, User>();
 users.TryAdd(1, new User() {Name = "Oleg", Age = 18});
@@ -141,5 +146,56 @@ public class ErrorHandlingMiddleware
         var jsonMessage = new { error = "Internal server error."};
 
         return context.Response.WriteAsJsonAsync(jsonMessage);
+    }
+}
+
+public class TokenValidationMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<TokenValidationMiddleware> _logger;
+
+    public TokenValidationMiddleware(RequestDelegate next, ILogger<TokenValidationMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context, ITokenValidator tokenValidator)
+    {
+
+// 1. Try to read Authorization header
+        if (!context.Request.Headers.TryGetValue("Authorization", out var authHeader))
+        {
+            await ReturnUnauthorized(context, "Missing Authorization header.");
+            return;
+        }
+
+        // 2. Extract token ("Bearer xxx")
+        var token = authHeader.ToString();
+        if (!token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            await ReturnUnauthorized(context, "Invalid authorization format.");
+            return;
+        }
+
+        token = token.Substring("Bearer ".Length).Trim();
+        // 3. Validate token using service
+        if (!tokenValidator.ValidateToken(token))
+        {
+            await ReturnUnauthorized(context, "Invalid or expired token.");
+            return;
+        }
+
+        // Token is valid → continue
+        await _next(context);
+    }
+    
+    private static async Task ReturnUnauthorized(HttpContext context, string message)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        context.Response.ContentType = "application/json";
+
+        var json = new { error = message };
+        await context.Response.WriteAsJsonAsync(json);
     }
 }

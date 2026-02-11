@@ -2,7 +2,8 @@
 GET http://localhost:5072/users
 
 ### Get first user test request
-GET http://localhost:5072/users/4
+GET http://localhost:5072/users/2
+Authorization: Bearer token123
 
 ### Add new user request
 POST http://localhost:5072/users/

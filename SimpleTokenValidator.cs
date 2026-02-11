@@ -1,10 +1,10 @@
 ﻿namespace UserManagementAPI;
 
-public interface ITockenValidator
+public interface ITokenValidator
 {
-    bool ValidateTocken(string tocken);
+    bool ValidateToken(string tocken);
 }
-public class SimpleTokenValidator
+public class SimpleTokenValidator : ITokenValidator
 { 
     private readonly HashSet<string> _validTokens = new()
     {
