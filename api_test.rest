@@ -1,0 +1,26 @@
+### Get al users test request
+GET http://localhost:5072/users
+
+### Get first user test request
+GET http://localhost:5072/users/4
+
+### Add new user request
+POST http://localhost:5072/users/
+content-type: application/json
+
+{
+    "name": "Oleg",
+    "age": "29"
+}
+
+### Change user data
+PUT http://localhost:5072/users/3
+content-type: application/json
+
+{
+    "name": "Dima",
+    "age": "23"
+}
+
+### Delete user
+DELETE  http://localhost:5072/users/3
